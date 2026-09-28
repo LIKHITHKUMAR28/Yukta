@@ -1,0 +1,23 @@
+{
+  "name": "eduos-yukta",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/web",
+    "build:functions": "npm run build --prefix firebase/functions",
+    "lint": "npm run lint -w apps/web",
+    "emulators": "firebase emulators:start",
+    "deploy": "npm run build && firebase deploy",
+    "deploy:hosting": "npm run build && firebase deploy --only hosting",
+    "deploy:firestore": "firebase deploy --only firestore",
+    "deploy:functions": "npm run build:functions && firebase deploy --only functions"
+  },
+  "dependencies": {
+    "firebase": "^12.15.0"
+  }
+}

@@ -1,0 +1,78 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.role == 'admin';
+    }
+
+    function isTrainer() {
+      return isAuthenticated() && (request.auth.token.role == 'trainer' || isAdmin());
+    }
+
+    // 1. User Profiles:
+    // User can read their own profile. On create, role MUST be 'student'.
+    // On update, users CANNOT alter 'role', 'uid', or 'email' (prevents self-privilege escalation).
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) 
+                    && request.resource.data.role == 'student'
+                    && request.resource.data.uid == userId;
+      allow update: if isOwner(userId) 
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'uid', 'email']);
+      allow write: if isAdmin();
+    }
+
+    // 2. Courses:
+    // Anyone can read published courses. Only verified trainers & admins can create/update.
+    match /courses/{courseId} {
+      allow read: if resource == null || resource.data.published == true || isTrainer();
+      allow write: if isTrainer();
+    }
+
+    // 3. Enrollments:
+    // Students can ONLY read their own enrollment records.
+    // Client-side direct creation is restricted to Admins/Backend (prevents payment bypass).
+    match /enrollments/{enrollmentId} {
+      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // 4. Progress:
+    // Student can read their own progress.
+    // On write, document ID must strictly match composite key {uid}_{courseId} to prevent IDOR.
+    match /progress/{progressId} {
+      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || isAdmin());
+      allow write: if isAuthenticated() 
+                   && request.resource.data.studentId == request.auth.uid
+                   && progressId == request.auth.uid + '_' + request.resource.data.courseId;
+    }
+
+    // 5. Payments:
+    // Read only by the paying student or admin. Writes strictly server/admin only.
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // 6. Notifications:
+    // Read/update read status only by recipient.
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (resource.data.recipientId == request.auth.uid || isAdmin());
+      allow update: if isAuthenticated() 
+                    && resource.data.recipientId == request.auth.uid 
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow create, delete: if isAdmin();
+    }
+  }
+}
