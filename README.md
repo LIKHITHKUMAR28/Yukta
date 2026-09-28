@@ -3,6 +3,7 @@
 > **Next-Generation AI-First Learning & Academic Management Platform**  
 > Architected as a modern TypeScript monorepo with React 19, Firebase Cloud Backend, and Google Gemini AI Tutor integration.
 
+Live: - https://eduos-prod.web.app/
 ---
 
 ## 🌟 Executive Overview
